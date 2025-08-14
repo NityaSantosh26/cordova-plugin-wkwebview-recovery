@@ -1,17 +1,13 @@
-<plugin id="cordova-plugin-wk-route-recovery" version="1.0.0"
+<plugin id="cordova-plugin-wkwebview-recovery" version="1.0.0"
         xmlns="http://apache.org/cordova/ns/plugins"
         xmlns:android="http://schemas.android.com/apk/res/android">
-    <name>WK Route Recovery</name>
-
-    <js-module src="www/WKRouteRecovery.js" name="WKRouteRecovery">
-        <clobbers target="cordova.WKRouteRecovery" />
-    </js-module>
+    <name>WKWebView Recovery</name>
 
     <platform name="ios">
-        <source-file src="src/ios/WKRouteRecovery.m" />
+        <source-file src="src/ios/WKWebViewRecovery.m" />
         <config-file target="config.xml" parent="/*">
-            <feature name="WKRouteRecovery">
-                <param name="ios-package" value="WKRouteRecovery" />
+            <feature name="WKWebViewRecovery">
+                <param name="ios-package" value="WKWebViewRecovery" />
             </feature>
         </config-file>
     </platform>
