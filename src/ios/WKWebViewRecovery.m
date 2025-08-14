@@ -100,6 +100,10 @@ static void * KVOContext = &KVOContext;
 
 #pragma mark - Recovery Logic
 
+- (NSURL *)getAppMainURL {
+    return self.wkWebView.URL;
+}
+
 - (void)reloadLastGoodURLOrFallback {
     NSURL *currentURL = self.wkWebView.URL;
     NSURL *urlToLoad = nil;
@@ -113,8 +117,17 @@ static void * KVOContext = &KVOContext;
         urlToLoad = currentURL;
         NSLog(@"[WKWebViewRecovery] Using current URL: %@", urlToLoad.absoluteString);
     } else {
-        urlToLoad = ((CDVViewController *)self.viewController).appUrl;
-        NSLog(@"[WKWebViewRecovery] Using fallback app URL: %@", urlToLoad.absoluteString);
+        // Get the app's main URL from the web view's initial URL or config
+        NSURL *fallbackURL = [self getAppMainURL];
+        if (fallbackURL) {
+            urlToLoad = fallbackURL;
+            NSLog(@"[WKWebViewRecovery] Using fallback app URL: %@", urlToLoad.absoluteString);
+        } else {
+            // Last resort: try to reload the current web view
+            NSLog(@"[WKWebViewRecovery] No fallback URL available, attempting reload");
+            [self.wkWebView reload];
+            return;
+        }
     }
 
     if (urlToLoad) {
