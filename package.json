@@ -1,0 +1,17 @@
+{
+    "name": "cordova-plugin-wk-route-recovery",
+    "version": "1.0.0",
+    "description": "Cordova plugin for WKWebView crash recovery with last route restore.",
+    "main": "www/WKRouteRecovery.js",
+    "keywords": [
+      "cordova",
+      "wkwebview",
+      "ios",
+      "crash",
+      "route",
+      "recovery"
+    ],
+    "author": "Nitya Santosh",
+    "license": "MIT"
+  }
+  
