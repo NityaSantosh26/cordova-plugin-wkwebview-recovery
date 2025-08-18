@@ -1,0 +1,20 @@
+<plugin id="cordova-plugin-wkwebview-recovery" version="1.0.0"
+        xmlns="http://apache.org/cordova/ns/plugins"
+        xmlns:android="http://schemas.android.com/apk/res/android">
+    <name>WKWebView Recovery</name>
+
+    <platform name="ios">
+        <header-file src="src/ios/WKWebViewRecovery.h" />
+        <source-file src="src/ios/WKWebViewRecovery.m" />
+        <config-file target="config.xml" parent="/*">
+            <feature name="WKWebViewRecovery">
+                <param name="ios-package" value="WKWebViewRecovery" />
+                <param name="onload" value="true" />
+            </feature>
+        </config-file>
+    </platform>
+
+    <js-module src="www/WKWebViewRecovery.js" name="WKWebViewRecovery">
+        <clobbers target="cordova.plugins.WKWebViewRecovery" />
+    </js-module>
+</plugin>

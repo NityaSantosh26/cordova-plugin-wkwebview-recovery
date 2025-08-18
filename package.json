@@ -1,0 +1,17 @@
+{
+    "name": "cordova-plugin-wkwebview-recovery",
+    "version": "1.0.0",
+    "description": "Cordova plugin for automatic WKWebView crash recovery on iOS",
+    "main": "index.js",
+    "keywords": [
+      "cordova",
+      "wkwebview",
+      "ios",
+      "crash",
+      "recovery",
+      "white-screen"
+    ],
+    "author": "Nitya Santosh",
+    "license": "MIT"
+  }
+  
