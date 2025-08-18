@@ -16,7 +16,7 @@
         // Get the web view from the main view controller
         if (self.webView && [self.webView isKindOfClass:[WKWebView class]]) {
             self.wkWebView = (WKWebView *)self.webView;
-            NSLog(@"[WKWebViewRecovery] ✅ Got WKWebView reference");
+            NSLog(@"[WKWebViewRecovery] Got WKWebView reference");
             
             // Capture previous delegate
             self.previousNavigationDelegate = self.wkWebView.navigationDelegate;
@@ -27,17 +27,52 @@
             // Only set delegate if we're not already the delegate
             if (self.wkWebView.navigationDelegate != self) {
                 self.wkWebView.navigationDelegate = self;
-                NSLog(@"[WKWebViewRecovery] ✅ Set self as navigation delegate");
+                NSLog(@"[WKWebViewRecovery] Set self as navigation delegate");
             } else {
-                NSLog(@"[WKWebViewRecovery] ⚠️ Already the navigation delegate");
+                NSLog(@"[WKWebViewRecovery] Already the navigation delegate");
             }
             
-            NSLog(@"[WKWebViewRecovery] ✅ Plugin initialized successfully");
+            NSLog(@"[WKWebViewRecovery] Plugin initialized successfully");
         } else {
-            NSLog(@"[WKWebViewRecovery] ❌ WebView is not WKWebView: %@", NSStringFromClass([self.webView class]));
+            NSLog(@"[WKWebViewRecovery] WebView is not WKWebView: %@", NSStringFromClass([self.webView class]));
         }
     } @catch (NSException *exception) {
-        NSLog(@"[WKWebViewRecovery] ❌ Error setting up navigation delegate: %@", exception.reason);
+        NSLog(@"[WKWebViewRecovery] Error setting up navigation delegate: %@", exception.reason);
+    }
+}
+
+#pragma mark - Reload Logic
+
+- (void)performReloadForWebView:(WKWebView *)webView reason:(NSString *)reason {
+    if (!webView) {
+        NSLog(@"[WKWebViewRecovery] Cannot reload: webView is nil (reason: %@)", reason ?: @"unknown");
+        return;
+    }
+
+    NSLog(@"[WKWebViewRecovery] Triggering reload (reason: %@)", reason ?: @"unknown");
+    NSLog(@"[WKWebViewRecovery] Current URL before reload: %@", webView.URL.absoluteString);
+
+    NSURL *reloadURL = nil;
+
+    if (webView.URL && ![webView.URL.absoluteString isEqualToString:@"about:blank"]) {
+        NSString *absolute = webView.URL.absoluteString;
+        NSRange range = [absolute rangeOfString:@"www/"];
+        if (range.location != NSNotFound) {
+            NSString *base = [absolute substringToIndex:range.location + range.length];
+            NSString *reloadURLString = [NSString stringWithFormat:@"%@index.html", base];
+            reloadURL = [NSURL URLWithString:reloadURLString];
+        }
+    }
+
+    if (reloadURL) {
+        NSLog(@"[WKWebViewRecovery] Loading URL: %@", reloadURL.absoluteString);
+        NSURLRequest *req = [NSURLRequest requestWithURL:reloadURL
+                                             cachePolicy:NSURLRequestReloadIgnoringLocalCacheData
+                                         timeoutInterval:20.0];
+        [webView loadRequest:req];
+    } else {
+        NSLog(@"[WKWebViewRecovery] Reload URL could not be determined; calling reload");
+        [webView reload];
     }
 }
 
@@ -56,44 +91,39 @@
 }
 
 - (void)webViewWebContentProcessDidTerminate:(WKWebView *)webView {
-    NSLog(@"[WKWebViewRecovery] 🚨🚨🚨 PROCESS TERMINATED - WebContent process crashed! 🚨🚨🚨");
-    NSLog(@"[WKWebViewRecovery] Current URL at termination: %@", webView.URL.absoluteString);
-    
-    NSURL *reloadURL = nil;
-
-    if (webView.URL && ![webView.URL.absoluteString isEqualToString:@"about:blank"]) {
-        NSString *absolute = webView.URL.absoluteString;
-        NSRange range = [absolute rangeOfString:@"www/"];
-        if (range.location != NSNotFound) {
-            NSString *base = [absolute substringToIndex:range.location + range.length];
-            NSString *reloadURLString = [NSString stringWithFormat:@"%@index.html", base];
-            reloadURL = [NSURL URLWithString:reloadURLString];
-        }
-    }
-
-    if (reloadURL) {
-        NSLog(@"[WKWebViewRecovery] 🔄 Reloading with URL: %@", reloadURL.absoluteString);
-        NSURLRequest *req = [NSURLRequest requestWithURL:reloadURL
-                                             cachePolicy:NSURLRequestReloadIgnoringLocalCacheData
-                                         timeoutInterval:20.0];
-        [webView loadRequest:req];
-    } else {
-        NSLog(@"[WKWebViewRecovery] ⚠️ Could not determine reload URL, falling back to reload");
-        [webView reload];
-    }
+    NSLog(@"[WKWebViewRecovery] WebContent process terminated (crashed)");
+    [self performReloadForWebView:webView reason:@"WebContent process crashed"];
 }
 
 // (No other delegate methods required)
 
+#pragma mark - App Lifecycle
+
+- (void)onAppWillEnterForeground:(NSNotification*)notification {
+    NSLog(@"[WKWebViewRecovery] App will enter foreground");
+    if (!self.wkWebView) {
+        NSLog(@"[WKWebViewRecovery] No WKWebView reference available on foreground entry");
+        return;
+    }
+
+    NSURL *currentURL = self.wkWebView.URL;
+    BOOL hasValidURL = (currentURL != nil) && ![currentURL.absoluteString isEqualToString:@"about:blank"];
+    if (!hasValidURL) {
+        [self performReloadForWebView:self.wkWebView reason:@"App entering foreground"];
+    } else {
+        NSLog(@"[WKWebViewRecovery] Skipping reload on foreground: URL is valid");
+    }
+}
+
 #pragma mark - Cleanup
 
 - (void)dispose {
-    NSLog(@"[WKWebViewRecovery] 🧹 Cleaning up plugin");
+    NSLog(@"[WKWebViewRecovery] Cleaning up plugin");
     
     // Reset navigation delegate if we're still the delegate
     if (self.wkWebView && self.wkWebView.navigationDelegate == self) {
         self.wkWebView.navigationDelegate = nil;
-        NSLog(@"[WKWebViewRecovery] ✅ Reset navigation delegate");
+        NSLog(@"[WKWebViewRecovery] Reset navigation delegate");
     }
     
     [super dispose];
