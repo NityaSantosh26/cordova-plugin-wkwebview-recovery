@@ -165,11 +165,13 @@
 
 - (void)emitCrashEventWithReason:(NSString *)reason beforeReload:(BOOL)beforeReload {
     UIDevice *device = [UIDevice currentDevice];
+    NSBundle *bundle = [NSBundle mainBundle];
+    NSString *appVersion = [bundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"";
     NSDictionary *payload = @{ @"type": @"crash",
-                               @"crashed": @YES,
                                @"reason": reason ?: @"",
-                               @"phase": beforeReload ? @"beforeReload" : @"afterReload",
                                @"iosVersion": device.systemVersion ?: @"",
+                               @"model": device.model ?: @"",
+                               @"appVersion": appVersion,
                                @"timestamp": @([[NSDate date] timeIntervalSince1970] * 1000) };
 
     // When the content process is terminated or we're about to reload, the JS bridge is not reliable.
