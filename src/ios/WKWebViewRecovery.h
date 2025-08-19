@@ -5,5 +5,7 @@
 
 @property (nonatomic, strong) WKWebView *wkWebView;
 @property (nonatomic, weak) id<WKNavigationDelegate> previousNavigationDelegate;
+@property (nonatomic, copy) NSString *eventCallbackId;
+@property (nonatomic, strong) NSDictionary *pendingCrashInfo;
 
 @end

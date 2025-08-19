@@ -9,6 +9,12 @@
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         [self setupNavigationDelegate];
     });
+
+    // Observe app foreground to handle potential white-screen cases
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(onAppWillEnterForeground:)
+                                                 name:UIApplicationWillEnterForegroundNotification
+                                               object:nil];
 }
 
 - (void)setupNavigationDelegate {
@@ -43,7 +49,7 @@
 
 #pragma mark - Reload Logic
 
-- (void)performReloadForWebView:(WKWebView *)webView reason:(NSString *)reason {
+- (void)performReloadForWebView:(WKWebView *)webView reason:(NSString *)reason crashed:(BOOL)crashed {
     if (!webView) {
         NSLog(@"[WKWebViewRecovery] Cannot reload: webView is nil (reason: %@)", reason ?: @"unknown");
         return;
@@ -51,6 +57,11 @@
 
     NSLog(@"[WKWebViewRecovery] Triggering reload (reason: %@)", reason ?: @"unknown");
     NSLog(@"[WKWebViewRecovery] Current URL before reload: %@", webView.URL.absoluteString);
+
+    // Emit analytics before reload. Only send if this is a crash case.
+    if (crashed) {
+        [self emitCrashEventWithReason:reason beforeReload:YES];
+    }
 
     NSURL *reloadURL = nil;
 
@@ -92,7 +103,7 @@
 
 - (void)webViewWebContentProcessDidTerminate:(WKWebView *)webView {
     NSLog(@"[WKWebViewRecovery] WebContent process terminated (crashed)");
-    [self performReloadForWebView:webView reason:@"WebContent process crashed"];
+    [self performReloadForWebView:webView reason:@"WebContent process crashed" crashed:YES];
 }
 
 // (No other delegate methods required)
@@ -109,7 +120,8 @@
     NSURL *currentURL = self.wkWebView.URL;
     BOOL hasValidURL = (currentURL != nil) && ![currentURL.absoluteString isEqualToString:@"about:blank"];
     if (!hasValidURL) {
-        [self performReloadForWebView:self.wkWebView reason:@"App entering foreground"];
+        // Treat this as a crash fallback: white screen/blank URL upon foreground
+        [self performReloadForWebView:self.wkWebView reason:@"App entering foreground fallback" crashed:YES];
     } else {
         NSLog(@"[WKWebViewRecovery] Skipping reload on foreground: URL is valid");
     }
@@ -126,7 +138,58 @@
         NSLog(@"[WKWebViewRecovery] Reset navigation delegate");
     }
     
+    // Remove app lifecycle observer
+    [[NSNotificationCenter defaultCenter] removeObserver:self name:UIApplicationWillEnterForegroundNotification object:nil];
+
     [super dispose];
+}
+
+/*
+ * MARK: - Cordova bridge API
+ */
+
+- (void)subscribe:(CDVInvokedUrlCommand *)command {
+    // Save callbackId for continuous event stream
+    self.eventCallbackId = command.callbackId;
+
+    // If a crash happened just before reload and JS is now back, deliver pending info
+    if (self.pendingCrashInfo != nil) {
+        [self sendEvent:self.pendingCrashInfo keepCallback:YES];
+        self.pendingCrashInfo = nil;
+    }
+}
+
+// Removed getEnvironment to keep the surface area minimal
+
+#pragma mark - Internal event helpers
+
+- (void)emitCrashEventWithReason:(NSString *)reason beforeReload:(BOOL)beforeReload {
+    UIDevice *device = [UIDevice currentDevice];
+    NSDictionary *payload = @{ @"type": @"crash",
+                               @"crashed": @YES,
+                               @"reason": reason ?: @"",
+                               @"phase": beforeReload ? @"beforeReload" : @"afterReload",
+                               @"iosVersion": device.systemVersion ?: @"",
+                               @"timestamp": @([[NSDate date] timeIntervalSince1970] * 1000) };
+
+    // When the content process is terminated or we're about to reload, the JS bridge is not reliable.
+    // Queue the event to deliver after the app reinitializes and re-subscribes.
+    if (beforeReload) {
+        self.pendingCrashInfo = payload;
+        return;
+    }
+
+    if (self.eventCallbackId != nil) {
+        [self sendEvent:payload keepCallback:YES];
+    } else {
+        self.pendingCrashInfo = payload;
+    }
+}
+
+- (void)sendEvent:(NSDictionary *)event keepCallback:(BOOL)keep {
+    CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:event];
+    [result setKeepCallbackAsBool:keep];
+    [self.commandDelegate sendPluginResult:result callbackId:self.eventCallbackId];
 }
 
 @end
