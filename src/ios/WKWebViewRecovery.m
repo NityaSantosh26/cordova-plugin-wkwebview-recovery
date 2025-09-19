@@ -4,7 +4,7 @@
 
 - (void)pluginInitialize {
     NSLog(@"[WKWebViewRecovery] Plugin initializing...");
-    
+
     // Wait a bit for the web view to be fully initialized
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         [self setupNavigationDelegate];
@@ -23,13 +23,13 @@
         if (self.webView && [self.webView isKindOfClass:[WKWebView class]]) {
             self.wkWebView = (WKWebView *)self.webView;
             NSLog(@"[WKWebViewRecovery] Got WKWebView reference");
-            
+
             // Capture previous delegate
             self.previousNavigationDelegate = self.wkWebView.navigationDelegate;
             if (self.previousNavigationDelegate) {
                 NSLog(@"[WKWebViewRecovery] Previous delegate: %@", NSStringFromClass([self.previousNavigationDelegate class]));
             }
-            
+
             // Only set delegate if we're not already the delegate
             if (self.wkWebView.navigationDelegate != self) {
                 self.wkWebView.navigationDelegate = self;
@@ -37,7 +37,7 @@
             } else {
                 NSLog(@"[WKWebViewRecovery] Already the navigation delegate");
             }
-            
+
             NSLog(@"[WKWebViewRecovery] Plugin initialized successfully");
         } else {
             NSLog(@"[WKWebViewRecovery] WebView is not WKWebView: %@", NSStringFromClass([self.webView class]));
@@ -103,7 +103,7 @@
 
 - (void)webViewWebContentProcessDidTerminate:(WKWebView *)webView {
     NSLog(@"[WKWebViewRecovery] WebContent process terminated (crashed)");
-    [self performReloadForWebView:webView reason:@"WebContent process crashed" crashed:YES];
+    [self performReloadForWebView:webView reason:@"Foreground" crashed:YES];
 }
 
 // (No other delegate methods required)
@@ -121,7 +121,7 @@
     BOOL hasValidURL = (currentURL != nil) && ![currentURL.absoluteString isEqualToString:@"about:blank"];
     if (!hasValidURL) {
         // Treat this as a crash fallback: white screen/blank URL upon foreground
-        [self performReloadForWebView:self.wkWebView reason:@"App entering foreground fallback" crashed:YES];
+        [self performReloadForWebView:self.wkWebView reason:@"Background" crashed:YES];
     } else {
         NSLog(@"[WKWebViewRecovery] Skipping reload on foreground: URL is valid");
     }
@@ -131,13 +131,13 @@
 
 - (void)dispose {
     NSLog(@"[WKWebViewRecovery] Cleaning up plugin");
-    
+
     // Reset navigation delegate if we're still the delegate
     if (self.wkWebView && self.wkWebView.navigationDelegate == self) {
         self.wkWebView.navigationDelegate = nil;
         NSLog(@"[WKWebViewRecovery] Reset navigation delegate");
     }
-    
+
     // Remove app lifecycle observer
     [[NSNotificationCenter defaultCenter] removeObserver:self name:UIApplicationWillEnterForegroundNotification object:nil];
 
